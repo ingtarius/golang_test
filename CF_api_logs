@@ -1,0 +1,71 @@
+package main
+
+import (
+  "os"
+  "net/http"
+  "time"
+  "log"
+  "flag"
+  "io/ioutil"
+  "strconv"
+)
+
+const (
+  cloudflare_api_url = "https://api.cloudflare.com/client/v4/zones"
+)
+
+var client *http.Client
+var url string
+
+func init() {
+  tr := &http.Transport{
+  MaxIdleConns:        200,
+  MaxIdleConnsPerHost: 200,
+  IdleConnTimeout:     30 * time.Second,
+  DisableCompression:  false,
+  }
+  client = &http.Client{Transport: tr}
+}
+
+func main() {
+  log.Println(time.Now().Format(time.RFC850))
+  authkey := flag.String("authkey", "", "Auth key for Cloudflare (Required). Example: banana1234")
+  authmail := flag.String("authmail", "", "Auth email for Cloudflare (Required). Example: monkey@zoo.com")
+  zoneid := flag.String("zoneid", "", "Zone ID for Cloudflare (Required). Example: sdfgho8hioubhoi87")
+  fields := flag.String("fields", "ClientRequestHost,ClientIP,ClientRequestURI", "List for fields in responce. See full list on CloudFlare site") // https://support.cloudflare.com/hc/en-us/articles/216672448-Enterprise-Log-Share-Logpull-REST-API
+  count := flag.Int("count", 1000, "Max records to show")
+  start := flag.String("start", "", "Start time for logs. Example: 2018-10-16T00:00:00")
+  end := flag.String("end", "", "End time for logs. Example: 2018-10-16T01:00:00")
+  flag.Parse()
+
+  // Check for empty values
+  if *authkey == "" || *authmail == "" || *zoneid == "" {
+    flag.PrintDefaults()
+    os.Exit(1)
+  }
+  // Check for empty values in data
+  if *start == "" || *end == "" {
+    flag.PrintDefaults()
+    os.Exit(1)
+  }
+
+  log.Println("# Auth key is", *authkey)
+  log.Println("# Auth email is", *authmail)
+  log.Println("# Zone ID is", *zoneid)
+  log.Println("# Fields is", *fields)
+  log.Println("# Count is", strconv.Itoa(*count))
+  log.Println("# Start time is", *start)
+  log.Println("# End time is", *end)
+
+  url = string(cloudflare_api_url) + "/" + string(*zoneid) + "/logs/received?start=" +string(*start) + "Z&end=" + string(*end) + "Z&fields=" + string(*fields)
+  //url = string(cloudflare_api_url) + "/" + string(*zoneid) + "/logs/received?start=" +string(*start) + "Z&end=" + string(*end) + "Z&fields=" + string(*fields) + "&count=" + strconv.Itoa(*count)
+  log.Println(url)
+  req, err := http.NewRequest("GET", url, nil)
+  req.Header.Add("X-Auth-Email", *authmail)
+  req.Header.Add("X-Auth-Key", *authkey)
+  resp, err := client.Do(req)
+  defer resp.Body.Close()
+  body, err := ioutil.ReadAll(resp.Body)
+  log.Println(resp, err)
+  log.Println(string(body))
+}

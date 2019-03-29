@@ -1,0 +1,94 @@
+package main
+import (
+    "fmt"
+    "log"
+    "os"
+    "flag"
+    "time"
+    "strings"
+    "math/rand"
+    "github.com/kless/osutil/user/crypt/sha512_crypt"
+    _"golang.org/x/crypto/bcrypt"
+)
+const (
+    MinCost     int = 4  // the minimum allowable cost as passed in to GenerateFromPassword
+    MaxCost     int = 31 // the maximum allowable cost as passed in to GenerateFromPassword
+    DefaultCost int = 19 // the cost that will actually be set if a cost below MinCost is passed into GenerateFromPassword
+    digits      string = "0123456789"
+    specials    string = "~=+%^*/()[]{}/!@#$?|"
+    letters     string = "abcdefghijklmnopqrstuvwxyz"
+    length      int = 12
+)
+
+func main() {
+
+    //numbBlocks := flag.Int("count", 1, "an int")
+    DealerName := flag.String("name", "", "an string")
+    DealerIP := flag.String("iprange", "", "an string")
+    JiraTask := flag.String("task", "", "an string")
+    UID := flag.String("uid", "", "an string")
+    flag.Parse()
+
+    if *DealerName == "" || *DealerIP == "" || *JiraTask == "" || *UID == "" {
+        fmt.Println("Run with args!")
+	os.Exit(1)
+    }
+
+    //for i := 1; i <= int(*numbBlocks); i++ {
+        pwd := genPwd()
+        hash := hashAndSalt(pwd)
+	generateconfigkeepalive := genKeepaliveConfig(*DealerIP, *DealerName, *JiraTask)
+	generateconfigshadow := genShadowConfig(*DealerName, hash, *UID)
+	print("\nData for dealer ", string(*DealerName), ":\n")
+	print("\nConfig for keepalived:\n", generateconfigkeepalive)
+	print("\nConfig for shadow:\n", generateconfigshadow)
+	print("\nPassword:", string(pwd))
+	print("\nHash:", hash)
+	print("\n")
+    //}
+}
+
+func genKeepaliveConfig (iprange string, name string, jira string) string {
+    var configtemplate strings.Builder
+    // Split data for separate ip
+    ip := strings.Split(iprange, ",")
+    for i := range ip {
+	tmp := "'" + ip[i] + "',  #" + jira + "  " + name + "\n"
+	configtemplate.WriteString(tmp)
+    }
+    return configtemplate.String()
+}
+
+func genShadowConfig (name string, hash string, uid string) string {
+	tmp := "road_sftp::dealer { '" + name + "':\n  uid      =>  '" + uid + "',\n  password => '" + hash + "',\n}"
+    return tmp
+}
+
+func genPwd() []byte {
+    rand.Seed(time.Now().UnixNano())
+    all := strings.ToUpper(letters) +
+           letters +
+           digits + specials
+    buf := make([]byte, length)
+    buf[0] = digits[rand.Intn(len(digits))]
+    buf[1] = specials[rand.Intn(len(specials))]
+    for i := 2; i < length; i++ {
+        buf[i] = all[rand.Intn(len(all))]
+    }
+    rand.Shuffle(len(buf), func(i, j int) {
+	buf[i], buf[j] = buf[j], buf[i]
+    })
+    str := string(buf) // E.g. "3i[g0|)z"
+    return []byte(str)
+}
+
+func hashAndSalt(pwd []byte) string {
+    c := sha512_crypt.New()
+    magic := sha512_crypt.MagicPrefix
+    hash, err := c.Generate(pwd, []byte(magic))
+    //hash, err := bcrypt.GenerateFromPassword(pwd, bcrypt.MinCost)
+    if err != nil {
+        log.Println(err)
+    }
+    return string(hash)
+}

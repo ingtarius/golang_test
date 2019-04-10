@@ -28,7 +28,7 @@ func GenQuizOrder(slice []int, shuffle bool) []int {
   for k := range slice {
       slice[k] = k
   }
-  ret := slice // make copy of slice
+  ret := make([]int, len(slice)) // make empty copy of slice
   // check for shuffling
   if shuffle == true {
     r := rand.New(rand.NewSource(time.Now().Unix()))
@@ -38,6 +38,8 @@ func GenQuizOrder(slice []int, shuffle bool) []int {
       ret[i] = slice[randIndex]
       slice = append(slice[:randIndex], slice[randIndex+1:]...)
     }
+  } else {
+      ret = slice
   }
   return ret
 }

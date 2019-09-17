@@ -2,7 +2,7 @@ package main
 
 import (
   "flag"
-  "fmt"
+  _"fmt"
   "os"
   "path/filepath"
   "math/rand"
@@ -28,21 +28,23 @@ func run ( MusicFile string ) error {
   if err != nil {
     return err
   }
-  defer f.Close()
   // mp3 magic
   d, err := mp3.NewDecoder(f)
   if err != nil {
     return err
   }
   // create new player
-  p, err := oto.NewPlayer(d.SampleRate(), 2, 2, 8192)
+  p, err := oto.NewContext(d.SampleRate(), 2, 2, 8192)
   if err != nil {
     return err
   }
-  defer p.Close()
-  if _, err := io.Copy(p, d); err != nil {
+  player := p.NewPlayer()
+  if _, err := io.Copy(player, d); err != nil {
     return err
   }
+  player.Close()
+  p.Close()
+  f.Close()
   return nil
 }
 
@@ -53,7 +55,7 @@ func main () {
   if dir == "current" {
     dir, _ = os.Getwd()
   }
-  fmt.Println("Search music in", dir)
+  //fmt.Println("Search music in", dir)
   // Start generate file list from music dir
   err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
     files = append(files, path)
@@ -64,9 +66,9 @@ func main () {
   }
   // infinity loop
   for {
-    fmt.Println("Files in folder -", len(files))
-    fmt.Println("We will play files -", files[GetRandomNumber(len(files))])
-    //time.Sleep(2 * time.Second)
+    //fmt.Println("Files in folder -", len(files))
+    //fmt.Println("We will play files -", files[GetRandomNumber(len(files))])
     run(files[GetRandomNumber(len(files))])
+    time.Sleep(1 * time.Second)
   }
 }
